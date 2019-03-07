@@ -1,0 +1,32 @@
+plugins {
+    id 'com.github.blindpirate.gogradle' version '0.11.3'
+}
+
+golang {
+    goVersion = '1.11.4'
+    packagePath = 'github.com/vanroy/microcli'
+}
+
+dependencies {
+    golang {
+        build 'github.com/urfave/cli#v1.20.0'
+        build 'github.com/c-bata/go-prompt#v0.1.1'
+        build 'github.com/thoas/go-funk#0.2'
+        build 'github.com/go-resty/resty#v1.0'
+        build 'github.com/BurntSushi/toml#v0.3.0'
+        build 'github.com/gobwas/glob#v0.2.2'
+        build 'github.com/howeyc/gopass'
+        build 'github.com/zalando/go-keyring'
+    }
+}
+
+goBuild {
+    targetPlatform = ['linux-amd64', 'darwin-amd64']
+    outputLocation = './build/dist/mbx_${GOOS}_${GOARCH}${GOEXE}'
+}
+
+goBuild.dependsOn goTest
+
+task build() {}
+
+build.dependsOn goBuild
