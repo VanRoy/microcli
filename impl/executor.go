@@ -1,20 +1,20 @@
 package impl
 
 import (
-	"flag"
 	"fmt"
-	"github.com/urfave/cli"
 	"os"
 	"strings"
+
+	"github.com/urfave/cli/v3"
 )
 
 type Executor struct {
-	context *cli.Context
+	command *cli.Command
 }
 
-func NexExecutor(context *cli.Context) *Executor {
+func NexExecutor(command *cli.Command) *Executor {
 	return &Executor{
-		context: context,
+		command: command,
 	}
 }
 
@@ -22,9 +22,10 @@ func NexExecutor(context *cli.Context) *Executor {
 func (e *Executor) Execute(s string) {
 
 	s = strings.TrimSpace(s)
-	if s == "" {
+	switch s {
+	case "":
 		return
-	} else if s == "quit" || s == "exit" {
+	case "quit", "exit":
 		fmt.Println("Bye!")
 		os.Exit(0)
 		return
@@ -33,13 +34,11 @@ func (e *Executor) Execute(s string) {
 	args := strings.Split(s, " ")
 	cmd := args[0]
 
-	cli.HandleAction(e.context.App.Command(cmd).Action, e.makeContext(args[1:]))
-}
+	command := e.command.Command(cmd)
+	if command != nil {
+		command.Action(nil, e.command) //nolint:errcheck
+		return
+	}
 
-func (e *Executor) makeContext(args []string) *cli.Context {
-
-	flagSet := flag.NewFlagSet("cmd", flag.ContinueOnError)
-	flagSet.Parse(args)
-
-	return cli.NewContext(e.context.App, flagSet, e.context)
+	e.command.CommandNotFound(nil, e.command, cmd)
 }

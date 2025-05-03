@@ -3,13 +3,14 @@ package git
 import (
 	"errors"
 	"fmt"
-	"github.com/go-resty/resty"
-	"github.com/thoas/go-funk"
-	"github.com/urfave/cli"
-	"github.com/vanroy/microcli/impl/config"
-	"github.com/vanroy/microcli/impl/prompt"
 	"strconv"
 	"strings"
+
+	"github.com/go-resty/resty/v2"
+	"github.com/thoas/go-funk"
+	"github.com/urfave/cli/v3"
+	"github.com/vanroy/microcli/impl/config"
+	"github.com/vanroy/microcli/impl/prompt"
 )
 
 type gitLab struct {
@@ -93,7 +94,7 @@ func (gl *gitLab) createGroup(args cli.Args) (string, error) {
 	prompt.PrintNewLine()
 
 	if groupName == "" || groupPath == "" {
-		prompt.PrintError("Missing parameters, group name and group path are required")
+		prompt.PrintErrorf("Missing parameters, group name and group path are required")
 		return "", errors.New("missing parameters")
 	}
 
@@ -107,7 +108,7 @@ func (gl *gitLab) createGroup(args cli.Args) (string, error) {
 	createResp, err := gl.execPost("/groups", data, &glGroup{})
 
 	if err != nil {
-		prompt.PrintError("Cannot create group. ( %s )", err.Error())
+		prompt.PrintErrorf("Cannot create group. ( %s )", err.Error())
 		return "", err
 	}
 
@@ -118,14 +119,14 @@ func (gl *gitLab) createGroup(args cli.Args) (string, error) {
 
 func (gl *gitLab) createRepository(args cli.Args) (string, error) {
 
-	groups, err := gl.getGroups()
+	groups, _ := gl.getGroups()
 
 	groups = funk.Filter(groups, func(g gitGroup) bool { return funk.ContainsString(gl.config.Git.GroupIds, g.Id) }).([]gitGroup)
 
 	idx := 0
 	groupId := ""
 	if len(groups) == 0 {
-		prompt.PrintError("No groups available")
+		prompt.PrintErrorf("No groups available")
 		return "", errors.New("no groups available")
 	} else if len(groups) == 1 {
 		groupId = groups[0].Id
@@ -152,7 +153,7 @@ func (gl *gitLab) createRepository(args cli.Args) (string, error) {
 	prompt.PrintNewLine()
 
 	if groupId == "" || projectName == "" {
-		prompt.PrintError("Missing parameters, project name and group are required")
+		prompt.PrintErrorf("Missing parameters, project name and group are required")
 		return "", errors.New("missing parameters")
 	}
 
@@ -170,7 +171,7 @@ func (gl *gitLab) createRepository(args cli.Args) (string, error) {
 	createResp, err := gl.execPost("projects", data, &glProject{})
 
 	if err != nil {
-		prompt.PrintError("Cannot create repository. ( %s )", err.Error())
+		prompt.PrintErrorf("Cannot create repository. ( %s )", err.Error())
 		return "", err
 	}
 
@@ -213,7 +214,7 @@ func (gl *gitLab) getRepositories() ([]gitRepository, error) {
 	return repos, nil
 }
 
-func (gl *gitLab) createReviewRequest(group string, folder string, from string, into string, title string, message string) (reviewRequest, error) {
+func (gl *gitLab) createReviewRequest(group string, folder string, from string, into string, title string, message string, draft bool) (reviewRequest, error) {
 
 	// TODO ( Implement )
 	return reviewRequest{}, nil
@@ -221,7 +222,7 @@ func (gl *gitLab) createReviewRequest(group string, folder string, from string, 
 
 func (gl *gitLab) execGet(url string, resultType interface{}) (interface{}, error) {
 
-	resp, err := resty.R().
+	resp, err := resty.New().R().
 		SetHeader("PRIVATE-TOKEN", gl.config.Git.PrivateToken).
 		SetResult(resultType).
 		Get(gl.apiUrl + "/" + url)
@@ -235,7 +236,7 @@ func (gl *gitLab) execGet(url string, resultType interface{}) (interface{}, erro
 
 func (gl *gitLab) execPost(url string, data map[string]string, resultType interface{}) (interface{}, error) {
 
-	resp, err := resty.R().
+	resp, err := resty.New().R().
 		SetHeader("PRIVATE-TOKEN", gl.config.Git.PrivateToken).
 		SetResult(resultType).
 		SetFormData(data).
@@ -246,7 +247,7 @@ func (gl *gitLab) execPost(url string, data map[string]string, resultType interf
 	}
 
 	if resp.StatusCode() < 200 || resp.StatusCode() > 300 {
-		return nil, errors.New(fmt.Sprintf("Cannot execute post request. Status code : %d. Message : %s", resp.StatusCode(), resp.String()))
+		return nil, fmt.Errorf("cannot execute post request. Status code : %d. Message : %s", resp.StatusCode(), resp.String())
 	}
 
 	return resp.Result(), nil
@@ -269,8 +270,8 @@ func (gl *gitLab) toGitRepo(groupId string) interface{} {
 			Name:              project.Name,
 			Description:       project.Description,
 			NameWithNamespace: project.NameWithNamespace,
-			Path:              project.Path,
-			PathWithNamespace: project.PathWithNamespace,
+			Path:              gl.normalize(project.Path),
+			PathWithNamespace: gl.normalize(project.PathWithNamespace),
 			SshUrl:            project.SshUrl,
 			HttpUrl:           project.HttpUrl,
 			DefaultBranch:     project.DefaultBranch,
@@ -284,6 +285,13 @@ func (gh *gitLab) getGroupBasePath(groupId string) string {
 	if groupId == PERSONAL_GROUP.Id {
 		return ""
 	} else {
-		return "groups/"+groupId
+		return "groups/" + groupId
 	}
+}
+
+func (gh *gitLab) normalize(name string) string {
+	if !gh.config.Git.NormalizeName {
+		return name
+	}
+	return strings.ToLower(strings.ReplaceAll(name, " ", "-"))
 }

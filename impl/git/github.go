@@ -3,15 +3,16 @@ package git
 import (
 	"errors"
 	"fmt"
-	"github.com/go-resty/resty"
-	"github.com/thoas/go-funk"
-	"github.com/urfave/cli"
-	"github.com/vanroy/microcli/impl/config"
-	"github.com/vanroy/microcli/impl/prompt"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/go-resty/resty/v2"
+	"github.com/thoas/go-funk"
+	"github.com/urfave/cli/v3"
+	"github.com/vanroy/microcli/impl/config"
+	"github.com/vanroy/microcli/impl/prompt"
 )
 
 type gitHub struct {
@@ -67,6 +68,7 @@ type ghCreatePullRequest struct {
 	Head  string `json:"head"`
 	Base  string `json:"base"`
 	Body  string `json:"body"`
+	Draft bool   `json:"draft"`
 }
 
 type ghPullRequest struct {
@@ -87,9 +89,7 @@ func newGitHub(config config.Config) gitRemote {
 		baseUrl += "api/v3"
 	}
 
-	if strings.HasSuffix(baseUrl, "/") {
-		baseUrl = strings.TrimSuffix(baseUrl, "/")
-	}
+	baseUrl = strings.TrimSuffix(baseUrl, "/")
 
 	return &gitHub{
 		config: config,
@@ -119,7 +119,7 @@ func (gh *gitHub) createGroup(args cli.Args) (string, error) {
 	prompt.PrintNewLine()
 
 	if orgaLogin == "" || orgaAdminLogin == "" {
-		prompt.PrintError("Missing parameters, group name and group admin login are required")
+		prompt.PrintErrorf("Missing parameters, group name and group admin login are required")
 		return "", errors.New("missing parameters")
 	}
 
@@ -131,7 +131,7 @@ func (gh *gitHub) createGroup(args cli.Args) (string, error) {
 
 	createResp, err := gh.execPost("admin/organizations", data, &ghOrg{})
 	if err != nil {
-		prompt.PrintError("Cannot create organization. ( %s )", err.Error())
+		prompt.PrintErrorf("Cannot create organization. ( %s )", err.Error())
 		return "", err
 	}
 
@@ -144,7 +144,7 @@ func (gh *gitHub) createGroup(args cli.Args) (string, error) {
 		}
 		_, err := gh.execPatch("orgs/"+orgId, descData, &ghOrg{})
 		if err != nil {
-			prompt.PrintError("Cannot create organization. ( %s )", err.Error())
+			prompt.PrintErrorf("Cannot create organization. ( %s )", err.Error())
 			return "", err
 		}
 
@@ -157,14 +157,14 @@ func (gh *gitHub) createGroup(args cli.Args) (string, error) {
 
 func (gh *gitHub) createRepository(args cli.Args) (string, error) {
 
-	groups, err := gh.getGroups()
+	groups, _ := gh.getGroups()
 
 	groups = funk.Filter(groups, func(g gitGroup) bool { return funk.ContainsString(gh.config.Git.GroupIds, g.Id) }).([]gitGroup)
 
 	idx := 0
 	groupId := ""
 	if len(groups) == 0 {
-		prompt.PrintError("No organization available")
+		prompt.PrintErrorf("No organization available")
 		return "", errors.New("no organization available")
 	} else if len(groups) == 1 {
 		groupId = groups[0].Id
@@ -185,15 +185,12 @@ func (gh *gitHub) createRepository(args cli.Args) (string, error) {
 	projectDescription := prompt.Input("\nEnter your repository description :", args.Get(idx+1))
 	projectVisibility := prompt.Choice("\nSelect your repository visibility ( default: private ) :", ghVisibilityOptions, args.Get(idx+2))
 
-	projectPrivate := true
-	if projectVisibility == "public" {
-		projectPrivate = false
-	}
+	projectPrivate := projectVisibility != "public"
 
 	prompt.PrintNewLine()
 
 	if groupId == "" || projectName == "" {
-		prompt.PrintError("Missing parameters, project name and group are required")
+		prompt.PrintErrorf("Missing parameters, project name and group are required")
 		return "", errors.New("missing parameters")
 	}
 
@@ -205,7 +202,7 @@ func (gh *gitHub) createRepository(args cli.Args) (string, error) {
 	createResp, err := gh.execPost(gh.getGroupBasePath(groupId)+"/repos", data, &ghRepo{})
 
 	if err != nil {
-		prompt.PrintError("Cannot create repository. ( %s )", err.Error())
+		prompt.PrintErrorf("Cannot create repository. ( %s )", err.Error())
 		return "", err
 	}
 
@@ -262,16 +259,17 @@ func (gh *gitHub) getRepositories() ([]gitRepository, error) {
 	return repos, nil
 }
 
-func (gh *gitHub) createReviewRequest(group string, folder string, from string, into string, title string, message string) (reviewRequest, error) {
+func (gh *gitHub) createReviewRequest(groupId string, repoId string, from string, into string, title string, message string, draft bool) (reviewRequest, error) {
 
 	data := ghCreatePullRequest{
 		Title: title,
 		Head:  from,
 		Base:  into,
 		Body:  message,
+		Draft: draft,
 	}
 
-	ghReview, err := gh.execPost("repos/"+group+"/"+folder+"/pulls", data, &ghPullRequest{})
+	ghReview, err := gh.execPost("repos/"+groupId+"/"+repoId+"/pulls", data, &ghPullRequest{})
 	if err != nil {
 		return reviewRequest{}, err
 	}
@@ -281,7 +279,7 @@ func (gh *gitHub) createReviewRequest(group string, folder string, from string, 
 
 func (gh *gitHub) execGet(url string, resultType interface{}) (interface{}, int, error) {
 
-	resp, err := resty.R().
+	resp, err := resty.New().R().
 		SetHeader("Authorization", "token "+gh.config.Git.PrivateToken).
 		SetResult(resultType).
 		Get(gh.apiUrl + "/" + url)
@@ -297,7 +295,7 @@ func (gh *gitHub) execGet(url string, resultType interface{}) (interface{}, int,
 
 func (gh *gitHub) execPost(url string, data interface{}, resultType interface{}) (interface{}, error) {
 
-	resp, err := resty.R().
+	resp, err := resty.New().R().
 		SetHeader("Authorization", "token "+gh.config.Git.PrivateToken).
 		SetResult(resultType).
 		SetBody(data).
@@ -308,7 +306,7 @@ func (gh *gitHub) execPost(url string, data interface{}, resultType interface{})
 	}
 
 	if resp.StatusCode() < 200 || resp.StatusCode() > 300 {
-		return nil, errors.New(fmt.Sprintf("Cannot execute post request. Status code : %d. Message : %s", resp.StatusCode(), resp.String()))
+		return nil, fmt.Errorf("cannot execute post request. Status code : %d. Message : %s", resp.StatusCode(), resp.String())
 	}
 
 	return resp.Result(), nil
@@ -316,7 +314,7 @@ func (gh *gitHub) execPost(url string, data interface{}, resultType interface{})
 
 func (gh *gitHub) execPatch(url string, data interface{}, resultType interface{}) (interface{}, error) {
 
-	resp, err := resty.R().
+	resp, err := resty.New().R().
 		SetHeader("Authorization", "token "+gh.config.Git.PrivateToken).
 		SetResult(resultType).
 		SetBody(data).
@@ -327,7 +325,7 @@ func (gh *gitHub) execPatch(url string, data interface{}, resultType interface{}
 	}
 
 	if resp.StatusCode() < 200 || resp.StatusCode() > 300 {
-		return nil, errors.New(fmt.Sprintf("Cannot execute post request. Status code : %d. Message : %s", resp.StatusCode(), resp.String()))
+		return nil, fmt.Errorf("cannot execute post request. Status code : %d. Message : %s", resp.StatusCode(), resp.String())
 	}
 
 	return resp.Result(), nil
@@ -350,8 +348,8 @@ func (gh *gitHub) toGitRepo(groupId string) interface{} {
 			Name:              repository.Name,
 			Description:       repository.Description,
 			NameWithNamespace: repository.NameWithNamespace,
-			Path:              repository.Name,
-			PathWithNamespace: repository.NameWithNamespace,
+			Path:              gh.normalize(repository.Name),
+			PathWithNamespace: gh.normalize(repository.NameWithNamespace),
 			SshUrl:            repository.SshUrl,
 			HttpUrl:           repository.HttpUrl,
 			DefaultBranch:     repository.DefaultBranch,
@@ -375,12 +373,8 @@ func (gh *gitHub) getGroupBasePath(groupId string) string {
 	if groupId == PERSONAL_GROUP.Id {
 		return "user"
 	} else {
-		return "orgs/"+groupId
+		return "orgs/" + groupId
 	}
-}
-
-func (gh *gitHub) normalize(name string) string {
-	return strings.ToLower(strings.Replace(name, " ", "-", -1))
 }
 
 func (gh *gitHub) parseNextPageValue(r *resty.Response) int {
@@ -422,4 +416,11 @@ func (gh *gitHub) parseNextPageValue(r *resty.Response) int {
 	}
 
 	return 0
+}
+
+func (gh *gitHub) normalize(name string) string {
+	if !gh.config.Git.NormalizeName {
+		return name
+	}
+	return strings.ToLower(strings.ReplaceAll(name, " ", "-"))
 }

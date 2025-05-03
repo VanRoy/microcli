@@ -2,6 +2,7 @@ package impl
 
 import (
 	"fmt"
+
 	"github.com/vanroy/microcli/impl/config"
 )
 
