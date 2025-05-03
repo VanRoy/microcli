@@ -3,14 +3,15 @@ package config
 import (
 	"bufio"
 	"errors"
-	"github.com/BurntSushi/toml"
-	"github.com/zalando/go-keyring"
 	"log"
 	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
+
+	"github.com/BurntSushi/toml"
+	"github.com/zalando/go-keyring"
 )
 
 const CONFIG_FILE = ".microbox/config.toml"
@@ -37,6 +38,9 @@ type GitConfig struct {
 	PrivateToken            string
 	GroupIds                []string
 	IncludeArchivedProjects bool
+	NormalizeName           bool
+	CloneProtocol           string
+	UseTokenForOperation    bool
 }
 
 type InitializrConfig struct {
@@ -61,7 +65,7 @@ func Exist() (bool, error) {
 
 func Load() (*Config, error) {
 
-	if exist, err := Exist(); exist == false {
+	if exist, err := Exist(); !exist {
 		return nil, err
 	}
 
@@ -78,6 +82,11 @@ func Load() (*Config, error) {
 		conf.Git.PrivateToken = getPassword(conf.Git)
 	}
 
+	// Default to SSH clone protocol
+	if len(conf.Git.CloneProtocol) == 0 {
+		conf.Git.CloneProtocol = "ssh"
+	}
+
 	return &conf, nil
 }
 
@@ -86,11 +95,14 @@ func Save(config Config) {
 	configFile, _ := getConfigFile()
 
 	dir := filepath.Dir(configFile)
-	os.Mkdir(dir, 0755)
+	err := os.Mkdir(dir, 0755)
+	if err != nil {
+		panic(err)
+	}
 
 	file, _ := os.Create(configFile)
 
-	defer file.Close()
+	defer closeFile(file)
 
 	writer := bufio.NewWriter(file)
 
@@ -101,14 +113,17 @@ func Save(config Config) {
 		config.Git.PrivateToken = ""
 	}
 
-	toml.NewEncoder(writer).Encode(config)
+	writeError := toml.NewEncoder(writer).Encode(config)
+	if writeError != nil {
+		panic(writeError)
+	}
 }
 
 func getConfigFile() (string, error) {
 
 	currentDir, err := os.Getwd()
 	if err != nil {
-		return "", errors.New("Cannot retreive current dir.")
+		return "", errors.New("cannot retreive current dir")
 	}
 
 	return filepath.Join(currentDir, CONFIG_FILE), nil
@@ -148,4 +163,11 @@ func savePassword(conf GitConfig) {
 		os.Exit(1)
 	}
 
+}
+
+func closeFile(f *os.File) {
+	err := f.Close()
+	if err != nil {
+		panic(err)
+	}
 }

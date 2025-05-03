@@ -1,60 +1,62 @@
 package main
 
 import (
+	"context"
 	"os"
 
-	"github.com/c-bata/go-prompt"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v3"
+
+	"os/signal"
+	"syscall"
 
 	microcli "github.com/vanroy/microcli/impl"
 	"github.com/vanroy/microcli/impl/config"
 	"github.com/vanroy/microcli/impl/git"
 	pmt "github.com/vanroy/microcli/impl/prompt"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
 
 	handleSignals()
 
-	conf, err := loadConf()
+	conf, err := loadConf(context.Background())
 	if err != nil {
-		pmt.PrintError("Command load config '%s'", err.Error())
+		pmt.PrintErrorf("Command load config '%s'", err.Error())
 		os.Exit(1)
 	}
 
-	app := cli.NewApp()
-	app.Name = "Microbox"
+	app := &cli.Command{}
+	app.Name = "mbx"
 	app.Usage = "This script provides utilities to manage microservices git repositories."
 	app.Version = "1.0.0"
 
 	app.Before = initContext
-	app.Action = displayPrompt
 	app.CommandNotFound = commandNotFound
 	app.Commands = microcli.InitCommands(*conf)
 
 	app.Flags = []cli.Flag{
-		cli.BoolFlag{
-			Name:  "quiet, q",
-			Usage: "Disable verbose output",
+		&cli.BoolFlag{
+			Name:    "quiet",
+			Aliases: []string{"q"},
+			Usage:   "Disable verbose output",
 		},
-		cli.BoolFlag{
-			Name:  "non-interactive, n",
-			Usage: "Non interactive mode",
+		&cli.BoolFlag{
+			Name:    "non-interactive",
+			Aliases: []string{"n"},
+			Usage:   "Non interactive mode",
 		},
 	}
 
-	app.Run(os.Args)
+	app.Run(context.Background(), os.Args) //nolint:errcheck
 }
 
 // Load or init configuration
-func loadConf() (*config.Config, error) {
+func loadConf(context context.Context) (*config.Config, error) {
 
-	if exist, err := config.Exist(); exist == false && err == nil {
+	if exist, err := config.Exist(); !exist && err == nil {
 		microcli.ShowBanner()
 		pmt.PrintWarn("Settings not exist, starting initialization\n")
-		git.Init(nil)
+		git.Init(context, nil) //nolint:errcheck
 		pmt.PrintInfo("Settings initialized, enjoy !")
 		os.Exit(0)
 	}
@@ -63,7 +65,7 @@ func loadConf() (*config.Config, error) {
 }
 
 // Init context before commands
-func initContext(c *cli.Context) error {
+func initContext(ctx context.Context, c *cli.Command) (context.Context, error) {
 
 	config.Options = config.GlobalOptions{
 		Verbose:     !c.Bool("quiet"),
@@ -72,42 +74,12 @@ func initContext(c *cli.Context) error {
 
 	microcli.ShowBanner()
 
-	return nil
-}
-
-// Display interactive prompt
-func displayPrompt(c *cli.Context) error {
-
-	p := prompt.New(
-		microcli.NexExecutor(c).Execute,
-		microcli.Completer,
-		prompt.OptionTitle("Microbox CLI"),
-		prompt.OptionPrefix("=> "),
-		prompt.OptionPrefixTextColor(prompt.DefaultColor),
-		prompt.OptionSuggestionBGColor(prompt.LightGray),
-		prompt.OptionSuggestionTextColor(prompt.White),
-		prompt.OptionDescriptionBGColor(prompt.DarkGray),
-		prompt.OptionDescriptionTextColor(prompt.White),
-		prompt.OptionPreviewSuggestionBGColor(prompt.DarkGray),
-		prompt.OptionPreviewSuggestionTextColor(prompt.White),
-		prompt.OptionSelectedSuggestionBGColor(prompt.DarkGray),
-		prompt.OptionSelectedSuggestionTextColor(prompt.White),
-		prompt.OptionSelectedDescriptionBGColor(prompt.LightGray),
-		prompt.OptionSelectedDescriptionTextColor(prompt.White),
-		prompt.OptionAddKeyBind(prompt.KeyBind{Key: prompt.ControlC, Fn: func(buffer *prompt.Buffer) {
-			os.Exit(1)
-		}}),
-	)
-
-	p.Run()
-
-	return nil
+	return ctx, nil
 }
 
 // Display command not found
-func commandNotFound(c *cli.Context, cmd string) {
-	pmt.PrintError("Command not exit '%s'", cmd)
-	os.Exit(1)
+func commandNotFound(ctx context.Context, c *cli.Command, cmd string) {
+	pmt.PrintErrorf("Command not exist '%s'", cmd)
 }
 
 func handleSignals() {

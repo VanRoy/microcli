@@ -3,7 +3,7 @@ package impl
 import (
 	"github.com/c-bata/go-prompt"
 	"github.com/thoas/go-funk"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v3"
 )
 
 // completer returns the completion items from user input.

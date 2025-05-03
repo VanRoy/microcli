@@ -3,18 +3,18 @@ package prompt
 import (
 	"bufio"
 	"fmt"
-	"github.com/howeyc/gopass"
-	"github.com/thoas/go-funk"
-	"github.com/vanroy/microcli/impl/config"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/thoas/go-funk"
+	"github.com/vanroy/microcli/impl/config"
+	"golang.org/x/term"
 )
 
 // Color defines a custom color object which is defined by SGR parameters.
 type color struct {
-	params  []Attribute
-	noColor *bool
+	params []Attribute
 }
 
 type Option struct {
@@ -95,19 +95,25 @@ func PrintItem(text string) {
 	}
 }
 
-func PrintInfo(format string, a ...interface{}) {
+func PrintInfo(format string, a ...any) {
 	if config.Options.Verbose {
 		fmt.Printf("%s==> %s%s%s\n", Color(Bold, FgBlue), Color(FgWhite), fmt.Sprintf(format, a...), Color(Reset))
 	}
 }
 
-func PrintWarn(format string, a ...interface{}) {
+func PrintWarn(format string, a ...any) {
 	if config.Options.Verbose {
 		fmt.Printf("%sWARNING: %s%s%s\n", Color(Bold, FgYellow), Color(FgWhite), fmt.Sprintf(format, a...), Color(Reset))
 	}
 }
 
-func PrintError(format string, a ...interface{}) {
+func PrintError(message string) {
+	if config.Options.Verbose {
+		fmt.Printf("%sERROR: %s%s%s\n", Color(Bold, FgRed), Color(FgWhite), message, Color(Reset))
+	}
+}
+
+func PrintErrorf(format string, a ...any) {
 	if config.Options.Verbose {
 		fmt.Printf("%sERROR: %s%s%s\n", Color(Bold, FgRed), Color(FgWhite), fmt.Sprintf(format, a...), Color(Reset))
 	}
@@ -150,7 +156,7 @@ func RestrictedInput(prompt string, acceptedValues []string) string {
 	for {
 		input := Input(prompt + " ( " + strings.Join(acceptedValues, " / ") + " ) :")
 		if funk.ContainsString(acceptedValues, input) {
-			return input;
+			return input
 		}
 	}
 }
@@ -173,7 +179,7 @@ func Choice(prompt string, options []Option, defaultValue ...string) string {
 		fmt.Printf("%d) %s\n", i+1, options[i].Name)
 	}
 
-	for true {
+	for {
 		str := Input("#? ")
 		if str == "" {
 			return ""
@@ -184,8 +190,6 @@ func Choice(prompt string, options []Option, defaultValue ...string) string {
 			return options[result-1].Id
 		}
 	}
-
-	return ""
 }
 
 func Password(prompt string) string {
@@ -198,8 +202,7 @@ func Password(prompt string) string {
 		fmt.Print(prompt + " ")
 	}
 
-	// Silent. For printing *'s use gopass.GetPasswdMasked()
-	pass, err := gopass.GetPasswdMasked()
+	pass, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err == nil {
 		return string(pass)
 	}

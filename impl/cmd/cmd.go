@@ -34,5 +34,5 @@ func ExecAndOutCmd(cmdName string, cmdArgs []string) error {
 }
 
 func ErrorString(err string) string {
-	return strings.Replace(strings.TrimSuffix(err, "\n"), "\n", " ", -1)
+	return strings.ReplaceAll(strings.TrimSuffix(err, "\n"), "\n", " ")
 }

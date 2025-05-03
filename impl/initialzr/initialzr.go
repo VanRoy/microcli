@@ -2,12 +2,13 @@ package initialzr
 
 import (
 	"fmt"
-	"github.com/go-resty/resty"
+	"os"
+	"strings"
+
+	"github.com/go-resty/resty/v2"
 	"github.com/vanroy/microcli/impl/cmd"
 	"github.com/vanroy/microcli/impl/config"
 	"github.com/vanroy/microcli/impl/prompt"
-	"os"
-	"strings"
 )
 
 type Initializr struct {
@@ -36,7 +37,7 @@ func (init *Initializr) Init(projectType string, projectName string, dependencie
 		url = init.config.Initializr.Url
 	}
 
-	resp, err := resty.R().
+	resp, err := resty.New().R().
 		SetFormData(data).
 		SetOutput(archive).
 		Post(fmt.Sprintf("%s/starter.tgz", url))
@@ -47,7 +48,7 @@ func (init *Initializr) Init(projectType string, projectName string, dependencie
 	}
 
 	// Remove archive
-	defer os.Remove(archive)
+	defer os.Remove(archive) //nolint:errcheck
 
 	// Extract archive
 	_, archiveErr := cmd.ExecCmdDir("tar", []string{"xvzf", archive}, destFolder)

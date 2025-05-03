@@ -1,6 +1,6 @@
 package git
 
-import "github.com/urfave/cli"
+import "github.com/urfave/cli/v3"
 
 type Labels struct {
 	GroupLabel            string
@@ -31,9 +31,9 @@ type gitGroup struct {
 	Name string
 }
 
-var PERSONAL_GROUP = gitGroup {
-	Id:"PERSONAL",
-	Name:"Personal",
+var PERSONAL_GROUP = gitGroup{
+	Id:   "PERSONAL",
+	Name: "Personal",
 }
 
 type reviewRequest struct {
@@ -50,5 +50,5 @@ type gitRemote interface {
 	createRepository(args cli.Args) (string, error)
 	getGroups() ([]gitGroup, error)
 	getRepositories() ([]gitRepository, error)
-	createReviewRequest(group string, folder string, from string, into string, title string, message string) (reviewRequest, error)
+	createReviewRequest(groupId string, repoId string, from string, into string, title string, message string, draft bool) (reviewRequest, error)
 }
