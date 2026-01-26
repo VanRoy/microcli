@@ -50,5 +50,5 @@ type gitRemote interface {
 	createRepository(args cli.Args) (string, error)
 	getGroups() ([]gitGroup, error)
 	getRepositories() ([]gitRepository, error)
-	createReviewRequest(groupId string, repoId string, from string, into string, title string, message string, draft bool) (reviewRequest, error)
+	createReviewRequest(repository *gitRepository, from string, into string, title string, message string, draft bool) (reviewRequest, error)
 }

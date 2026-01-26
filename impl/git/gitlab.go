@@ -214,7 +214,7 @@ func (gl *gitLab) getRepositories() ([]gitRepository, error) {
 	return repos, nil
 }
 
-func (gl *gitLab) createReviewRequest(group string, folder string, from string, into string, title string, message string, draft bool) (reviewRequest, error) {
+func (gl *gitLab) createReviewRequest(repository *gitRepository, from string, into string, title string, message string, draft bool) (reviewRequest, error) {
 
 	// TODO ( Implement )
 	return reviewRequest{}, nil

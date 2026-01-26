@@ -259,7 +259,7 @@ func (gh *gitHub) getRepositories() ([]gitRepository, error) {
 	return repos, nil
 }
 
-func (gh *gitHub) createReviewRequest(groupId string, repoId string, from string, into string, title string, message string, draft bool) (reviewRequest, error) {
+func (gh *gitHub) createReviewRequest(repository *gitRepository, from string, into string, title string, message string, draft bool) (reviewRequest, error) {
 
 	data := ghCreatePullRequest{
 		Title: title,
@@ -269,7 +269,7 @@ func (gh *gitHub) createReviewRequest(groupId string, repoId string, from string
 		Draft: draft,
 	}
 
-	ghReview, err := gh.execPost("repos/"+groupId+"/"+repoId+"/pulls", data, &ghPullRequest{})
+	ghReview, err := gh.execPost("repos/"+repository.GroupId+"/"+repository.Name+"/pulls", data, &ghPullRequest{})
 	if err != nil {
 		return reviewRequest{}, err
 	}
@@ -280,7 +280,9 @@ func (gh *gitHub) createReviewRequest(groupId string, repoId string, from string
 func (gh *gitHub) execGet(url string, resultType interface{}) (interface{}, int, error) {
 
 	resp, err := resty.New().R().
-		SetHeader("Authorization", "token "+gh.config.Git.PrivateToken).
+		SetHeader("Authorization", "Bearer "+gh.config.Git.PrivateToken).
+		SetHeader("Accept", "application/vnd.github+json").
+		SetHeader("X-GitHub-Api-Version", "2022-11-28").
 		SetResult(resultType).
 		Get(gh.apiUrl + "/" + url)
 
@@ -296,7 +298,9 @@ func (gh *gitHub) execGet(url string, resultType interface{}) (interface{}, int,
 func (gh *gitHub) execPost(url string, data interface{}, resultType interface{}) (interface{}, error) {
 
 	resp, err := resty.New().R().
-		SetHeader("Authorization", "token "+gh.config.Git.PrivateToken).
+		SetHeader("Authorization", "Bearer "+gh.config.Git.PrivateToken).
+		SetHeader("Accept", "application/vnd.github+json").
+		SetHeader("X-GitHub-Api-Version", "2022-11-28").
 		SetResult(resultType).
 		SetBody(data).
 		Post(gh.apiUrl + "/" + url)
@@ -315,7 +319,9 @@ func (gh *gitHub) execPost(url string, data interface{}, resultType interface{})
 func (gh *gitHub) execPatch(url string, data interface{}, resultType interface{}) (interface{}, error) {
 
 	resp, err := resty.New().R().
-		SetHeader("Authorization", "token "+gh.config.Git.PrivateToken).
+		SetHeader("Authorization", "Bearer "+gh.config.Git.PrivateToken).
+		SetHeader("Accept", "application/vnd.github+json").
+		SetHeader("X-GitHub-Api-Version", "2022-11-28").
 		SetResult(resultType).
 		SetBody(data).
 		Patch(gh.apiUrl + "/" + url)

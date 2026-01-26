@@ -85,7 +85,7 @@ func Init(_ context.Context, c *cli.Command) error {
 			Type:         gitType,
 			BaseUrl:      baseUrl,
 			PrivateToken: token,
-			AuthMode: authMode,
+			AuthMode:     authMode,
 		},
 	}
 
@@ -447,7 +447,7 @@ func (g *GitCommands) Exec(_ context.Context, c *cli.Command) error {
 				}
 
 				prompt.PrintInfo("Executing action for '%s' : %screating %s", folder, prompt.Color(prompt.FgYellow), g.GetLabels().CodeReviewRequest)
-				review, err := g.impl.createReviewRequest(repo.GroupId, repo.Id, branchName, defaultBranch, reviewTitle, reviewMessage, reviewDraft)
+				review, err := g.impl.createReviewRequest(&repo, branchName, defaultBranch, reviewTitle, reviewMessage, reviewDraft)
 				if err != nil {
 					prompt.PrintErrorf("Cannot create %s for '%s' : , error : %s", g.GetLabels().CodeReviewRequest, folder, err.Error())
 				} else {

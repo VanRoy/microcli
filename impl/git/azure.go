@@ -264,7 +264,7 @@ func (az *azure) getRepositories() ([]gitRepository, error) {
 	return repos, nil
 }
 
-func (az *azure) createReviewRequest(groupId string, repoId string, from string, into string, title string, message string, draft bool) (reviewRequest, error) {
+func (az *azure) createReviewRequest(repository *gitRepository, from string, into string, title string, message string, draft bool) (reviewRequest, error) {
 	data := azCreatePullRequest{
 		Title:         title,
 		SourceRefName: "refs/heads/" + strings.TrimPrefix(from, "refs/heads/"),
@@ -273,7 +273,7 @@ func (az *azure) createReviewRequest(groupId string, repoId string, from string,
 		IsDraft:       draft,
 	}
 
-	azReview, err := az.execPost(groupId+"/_apis/git/repositories/"+repoId+"/pullrequests?api-version=7.1", data, &azPullRequest{})
+	azReview, err := az.execPost(repository.GroupId+"/_apis/git/repositories/"+repository.Id+"/pullrequests?api-version=7.1", data, &azPullRequest{})
 	if err != nil {
 		return reviewRequest{}, err
 	}
