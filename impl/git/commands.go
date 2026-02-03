@@ -62,7 +62,22 @@ func Init(_ context.Context, c *cli.Command) error {
 
 	gitTypeName := getImplCfg(gitType).Name
 	baseUrl := prompt.Input(fmt.Sprintf("Enter your %s base url :", gitTypeName))
-	token := prompt.Password(fmt.Sprintf("Enter your %s token :", gitTypeName))
+
+	var authMode = "pat"
+	var token string
+	if gitType == "azure" {
+		azAuthMode := []prompt.Option{
+			{Id: "az-cli", Name: "Azure CLI"},
+			{Id: "pat", Name: "Personal access token"},
+		}
+		authMode = prompt.Choice("Select your authentication mode :", azAuthMode)
+		if authMode == "pat" {
+			token = prompt.Password(fmt.Sprintf("Enter your %s token :", gitTypeName))
+		}
+	} else {
+		token = prompt.Password(fmt.Sprintf("Enter your %s token :", gitTypeName))
+	}
+
 	prompt.PrintNewLine()
 
 	tmpConfig := config.Config{
@@ -70,6 +85,7 @@ func Init(_ context.Context, c *cli.Command) error {
 			Type:         gitType,
 			BaseUrl:      baseUrl,
 			PrivateToken: token,
+			AuthMode: authMode,
 		},
 	}
 
@@ -115,6 +131,21 @@ func Init(_ context.Context, c *cli.Command) error {
 	}
 
 	config.Save(tmpConfig)
+
+	return nil
+}
+
+// Refresh authentication config
+func Auth(_ context.Context, c *cli.Command) error {
+
+	existingConfig, _ := config.Load()
+
+	token := prompt.Password(fmt.Sprintf("Enter the new %s token :", getImplCfg(existingConfig.Git.Type).Name))
+	prompt.PrintNewLine()
+
+	existingConfig.Git.PrivateToken = token
+
+	config.SavePassword(existingConfig.Git)
 
 	return nil
 }

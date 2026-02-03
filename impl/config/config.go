@@ -35,6 +35,7 @@ type Config struct {
 type GitConfig struct {
 	Type                    string
 	BaseUrl                 string
+	AuthMode                string
 	PrivateToken            string
 	GroupIds                []string
 	IncludeArchivedProjects bool
@@ -77,8 +78,13 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	// Default to PAT auth mode
+	if len(conf.Git.AuthMode) == 0 {
+		conf.Git.AuthMode = "pat"
+	}
+
 	// Retrieve password from keychain
-	if len(conf.Git.PrivateToken) == 0 {
+	if len(conf.Git.PrivateToken) == 0 && conf.Git.AuthMode == "pat" {
 		conf.Git.PrivateToken = getPassword(conf.Git)
 	}
 
@@ -95,7 +101,7 @@ func Save(config Config) {
 	configFile, _ := getConfigFile()
 
 	dir := filepath.Dir(configFile)
-	err := os.Mkdir(dir, 0755)
+	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		panic(err)
 	}
@@ -108,8 +114,8 @@ func Save(config Config) {
 
 	// Save password on keychain
 	if len(config.Git.PrivateToken) != 0 {
-		savePassword(config.Git)
-		//Cleanup password to avoid saving in FS
+		SavePassword(config.Git)
+		// Cleanup password to avoid saving in FS
 		config.Git.PrivateToken = ""
 	}
 
@@ -123,7 +129,7 @@ func getConfigFile() (string, error) {
 
 	currentDir, err := os.Getwd()
 	if err != nil {
-		return "", errors.New("cannot retreive current dir")
+		return "", errors.New("cannot retrieve current dir")
 	}
 
 	return filepath.Join(currentDir, CONFIG_FILE), nil
@@ -150,10 +156,9 @@ func getPassword(conf GitConfig) string {
 	}
 
 	return secret
-
 }
 
-func savePassword(conf GitConfig) {
+func SavePassword(conf GitConfig) {
 
 	currentUser, _ := user.Current()
 
