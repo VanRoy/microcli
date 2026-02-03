@@ -9,6 +9,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/thoas/go-funk"
 	"github.com/urfave/cli/v3"
+	"github.com/vanroy/microcli/impl/cmd"
 	"github.com/vanroy/microcli/impl/config"
 	"github.com/vanroy/microcli/impl/prompt"
 )
@@ -282,8 +283,7 @@ func (az *azure) createReviewRequest(groupId string, repoId string, from string,
 
 func (az *azure) execGet(url string, resultType interface{}) (interface{}, error) {
 
-	resp, err := resty.New().R().
-		SetBasicAuth("", az.config.Git.PrivateToken).
+	resp, err := az.authenticate(resty.New().R()).
 		SetResult(resultType).
 		Get(az.config.Git.BaseUrl + "/" + url)
 
@@ -296,8 +296,7 @@ func (az *azure) execGet(url string, resultType interface{}) (interface{}, error
 
 func (az *azure) execPost(url string, data interface{}, resultType interface{}) (interface{}, error) {
 
-	resp, err := resty.New().R().
-		SetBasicAuth("", az.config.Git.PrivateToken).
+	resp, err := az.authenticate(resty.New().R()).
 		SetResult(resultType).
 		SetBody(data).
 		Post(az.config.Git.BaseUrl + "/" + url)
@@ -311,6 +310,28 @@ func (az *azure) execPost(url string, data interface{}, resultType interface{}) 
 	}
 
 	return resp.Result(), nil
+}
+
+var azToken string
+
+func (az *azure) authenticate(request *resty.Request) *resty.Request {
+
+	if az.config.Git.AuthMode == "az-cli" {
+		if azToken == "" {
+			token, err := cmd.ExecCmd("az", []string{"account", "get-access-token", "--resource", "499b84ac-1321-427f-aa17-267ca6975798", "--query", "\"accessToken\"", "-o", "tsv"})
+			if err != nil {
+				prompt.PrintErrorf("Cannot retrieve authentication token via Azure CLI (%s)", err.Error())
+				return request
+			}
+			azToken = token
+		}
+
+		request.SetHeader("Authorization", "Bearer "+azToken)
+		return request
+	}
+
+	request.SetBasicAuth("", az.config.Git.PrivateToken)
+	return request
 }
 
 func (az *azure) toGitRepo(groupId string) interface{} {

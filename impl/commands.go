@@ -25,6 +25,7 @@ func InitCommands(config config.Config) []*cli.Command {
 
 	Commands = funk.ToMap([]cli.Command{
 		{Name: "init", Usage: "init workspace in current folder", Action: git.Init},
+		{Name: "authenticate", Usage: "refresh authentication token", Action: git.Auth},
 		{Name: "list", Usage: "list projects on workspace", Action: gitCommands.ListLocal},
 
 		{Name: "glist", Usage: "list all remote " + labels.RepositoriesLabel + " from " + labels.GroupsLabel, Action: gitCommands.ListRemote},
