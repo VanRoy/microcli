@@ -3,7 +3,7 @@
 
 image:https://img.shields.io/badge/license-ASF2-blue.svg[Apache License 2, link=https://www.apache.org/licenses/LICENSE-2.0.txt]
 image:https://travis-ci.org/VanRoy/microcli.svg?branch=master[Build Status, link=https://travis-ci.org/VanRoy/microcli]
-image:https://img.shields.io/badge/homebrew-1.0.0-brightgreen.svg[]
+image:https://img.shields.io/badge/homebrew-1.1.0-brightgreen.svg[]
 
 Microbox CLI provides utilities to manage microservices git repositories.
 
@@ -32,7 +32,7 @@ USAGE:
    mbx [global options] command [command options] [arguments...]
 
 VERSION:
-   1.0.0
+   1.1.0
 
 COMMANDS:
      clear    clear the screen

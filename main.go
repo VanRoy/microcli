@@ -28,7 +28,7 @@ func main() {
 	app := &cli.Command{}
 	app.Name = "mbx"
 	app.Usage = "This script provides utilities to manage microservices git repositories."
-	app.Version = "1.0.0"
+	app.Version = "1.1.0"
 
 	app.Before = initContext
 	app.CommandNotFound = commandNotFound
